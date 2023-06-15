@@ -19,18 +19,8 @@ pub use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::inherent::Vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use log;
-	// import Deserialize
-	use serde::Deserialize;
-	use sp_io::offchain_index;
-	use sp_runtime::offchain::storage::StorageValueRef;
-	const ONCHAIN_TX_KEY: &[u8] = b"my_pallet::indexing1";
-
-	#[derive(Debug, Deserialize, Encode, Decode, Default)]
-	struct IndexingData([u8; 16], u64);
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -112,52 +102,6 @@ pub mod pallet {
 					<Something<T>>::put(new);
 					Ok(())
 				},
-			}
-		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::cause_error())]
-		pub fn extrinsic(origin: OriginFor<T>, number: u64) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			let key = Self::derived_key(frame_system::Pallet::<T>::block_number());
-			log::info!("+++extrinsic key: {:?}", key);
-			let data = IndexingData(*b"1234567812345678", number);
-			offchain_index::set(&key, &data.encode());
-			Ok(())
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		fn derived_key(block_number: T::BlockNumber) -> Vec<u8> {
-			block_number.using_encoded(|encoded_bn| {
-				ONCHAIN_TX_KEY
-					.clone()
-					.into_iter()
-					.chain(b"/".into_iter())
-					.chain(encoded_bn)
-					.copied()
-					.collect::<Vec<u8>>()
-			})
-		}
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn offchain_worker(block_number: BlockNumberFor<T>) {
-			// offchain worker code
-			log::info!(
-				"===OCW=== Hello World from offchain workers! block number: {:?}",
-				block_number
-			);
-
-			let key = Self::derived_key(block_number);
-			log::info!("---offchain_worker key: {:?}", key);
-			let storage_ref = StorageValueRef::persistent(&key);
-			if let Ok(Some(data)) = storage_ref.get::<IndexingData>() {
-				log::info!("local storage data: {:?}, {:?}", data.0, data.1);
-			} else {
-				log::info!("Error reading from local storage.");
 			}
 		}
 	}
